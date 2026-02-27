@@ -2,12 +2,12 @@ import { hasPassword } from "../utils/password.js";
 import User from "../models/user.model.js";
 
 import bcrypt from "bcryptjs";
-export const createUser = async (data, tenantId) => {
-  data.password = await hasPassword(data.password);
-  return User.create({ ...data, tenantId });
+export const createUser = async (data) => {
+  data.pin = await hasPassword(data.pin);
+  return User.create({ ...data });
 };
 
-export const getUser = async (tenantId) => {
+export const getUser = async () => {
   // Expects STRING
   return User.find() // ✅ { tenantId: "6979..." }
     
