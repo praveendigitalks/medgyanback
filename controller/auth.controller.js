@@ -1,5 +1,5 @@
 import User from "../models/user.model.js";
-import { Login , Logout} from "../service/auth.service.js";
+import { Login , Logout, forgotPin, verifyResetPin} from "../service/auth.service.js";
 
 export const LoginUser = async (req, res) => {
   try {
@@ -34,6 +34,55 @@ export const LoginUser = async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 };
+
+
+
+
+// auth.controller.js - Add these to existing file
+
+export const forgotPinController = async (req, res) => {
+  try {
+    const { identifier } = req.body;
+    
+    if (!identifier) {
+      return res.status(400).json({ message: "identifier (username/email) required" });
+    }
+
+    const result = await forgotPin({ identifier });
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+export const verifyResetPinController = async (req, res) => {
+  try {
+    const { identifier, resetPin, newPin } = req.body;
+
+    if (!identifier || !resetPin || !newPin) {
+      return res.status(400).json({
+        message: "identifier, resetPin and newPin required"
+      });
+    }
+
+    if (!/^\d{4,6}$/.test(newPin)) {
+      return res.status(400).json({
+        message: "New PIN must be 4-6 digits"
+      });
+    }
+
+    const result = await verifyResetPin({
+      identifier,
+      resetPin,
+      newPin
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 
 export const LogoutUser = async (req, res) => {
   try {

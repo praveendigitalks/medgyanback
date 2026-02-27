@@ -41,9 +41,26 @@ const userSchema = new mongoose.Schema({
       enum: ['TRIAL', 'ACTIVE', 'EXPIRED'],
       default: 'TRIAL'
     },
-    expiresAt: Date
+    startDate : Date,
+    expiresAt: Date,
+     expiryNotified: {
+    type: Boolean,
+    default: false
+  }
   },
-  tenantId: mongoose.Schema.Types.ObjectId
+   resetPinToken: {
+    type: String,
+    default: null
+  },
+   resetPin: {
+    type: String,
+    default: null
+  },
+  resetPinExpires: {
+    type: Date,
+    default: null
+  }
+
 }, { 
   timestamps: true 
 });

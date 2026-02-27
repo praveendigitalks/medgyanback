@@ -1,11 +1,13 @@
 import express from "express";
 
 const router =express.Router();
+import dotenv from "dotenv";
+dotenv.config();
 // ------------------ Authentication Routes Import ------------------------------------
 // import permissionRouter from "./permission.routes.js";
 // import roleRouter from "./role.routes.js";
 import userRouter from "./user.route.js";
-import { LoginUser, LogoutUser } from "../controller/auth.controller.js";
+import { LoginUser, LogoutUser, forgotPinController, verifyResetPinController } from "../controller/auth.controller.js";
 // import authUser from "./auth.routes.js";
 
 
@@ -22,6 +24,8 @@ import { LoginUser, LogoutUser } from "../controller/auth.controller.js";
 router.use("/user", userRouter);
 router.use("/login", LoginUser);
 router.use("/logout", LogoutUser);
+router.use("/forgotpin", forgotPinController);
+router.use("/verifypin", verifyResetPinController);
 // router.use("/tenant", tenantRouter);
 // router.use("/login", authUser);
 
