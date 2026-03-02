@@ -4,34 +4,33 @@ import { Login , Logout, forgotPin, verifyResetPin} from "../service/auth.servic
 export const LoginUser = async (req, res) => {
   try {
     const { identifier, pin, deviceId, deviceInfo } = req.body;
-    
-    // ✅ Only require deviceId for NON-super admin
-    const user = await User.findOne({
-      $or: [{ userName: identifier }, { email: identifier }]
-    });
-    
-    if (!user) {
-      return res.status(400).json({ message: "User not found" });
-    }
-    
-    // ✅ Super admin: identifier + pin ONLY
-    // ✅ Regular user: identifier + pin + deviceId
-    if (!user.isSuperAdmin && !deviceId) {
-      return res.status(400).json({ 
-        message: "deviceId is required for regular users" 
+
+    /* -------- BASIC VALIDATION -------- */
+    if (!identifier || !pin) {
+      return res.status(400).json({
+        success: false,
+        message: "identifier and pin required"
       });
     }
 
-    const loginResult = await Login({ 
-      identifier, 
-      pin, 
-      deviceId,  // Can be undefined for super admin
-      deviceInfo 
+    const result = await Login({
+      identifier,
+      pin,
+      deviceId,
+      deviceInfo
     });
-    
-    return res.status(200).json(loginResult);
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: result
+    });
+
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 

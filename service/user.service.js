@@ -68,5 +68,47 @@ export const deleteUser = async (id) => {
   return User.findByIdAndDelete( id);
 };
 
+
+export const delinkUserDeviceService = async (userId) => {
+  const user = await User.findById(userId);
+
+  if (!user) throw new Error("User not found");
+
+  user.device = undefined;
+  user.deviceId = undefined;
+
+  await user.save();
+
+  return user;
+};
+
+export const blockUserService = async (userId) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  user.isBlocked = true;
+  user.blockedAt = new Date();
+
+  await user.save();
+
+  return user;
+};
 // logged  user devices
 
+export const unblockUserService = async (userId) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  user.isBlocked = false;
+  user.blockedAt = null;
+
+  await user.save();
+
+  return user;
+};

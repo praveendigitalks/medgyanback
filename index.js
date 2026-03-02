@@ -29,7 +29,8 @@ app.use(
 );
 
 /* ---------- STATIC FILES ---------- */
-app.use("/upload", express.static(path.join(process.cwd(), "upload")));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 
 /* ---------- DB ---------- */
 connectDB();

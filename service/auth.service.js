@@ -6,83 +6,94 @@ import { generateResetPinToken, sendResetPinEmail, verifyResetPinToken } from ".
 import { getUserSubscriptionStatus } from "../utils/subscription.js";
 
 export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
+
+  /* ---------------- FIND USER ---------------- */
   const user = await User.findOne({
     $or: [
-      { userName: identifier },
-      { email: identifier }
+      { userName: identifier.toLowerCase().trim() },
+      { email: identifier.toLowerCase().trim() }
     ]
   });
 
-  if (!user) throw new Error("User not found");
+  if (!user) {
+    throw new Error("User not found");
+  }
 
+  /* ---------------- BLOCK CHECK ---------------- */
+  if (user.isBlocked) {
+    throw new Error("Your account has been blocked by admin.");
+  }
+
+  /* ---------------- PASSWORD CHECK ---------------- */
   const match = await comparePassword(pin, user.pin);
-  if (!match) throw new Error("Invalid credentials");
+  if (!match) {
+    throw new Error("Invalid credentials");
+  }
 
-  // Subscription check (super admin bypass) ✅
+  /* ---------------- SUBSCRIPTION CHECK ---------------- */
   if (!user.isSuperAdmin) {
     const now = new Date();
-    const sub = user.subscription;
-    if (sub.status !== 'ACTIVE' && sub.status !== 'TRIAL') {
+    const sub = user.subscription || {};
+
+    if (sub.status !== "ACTIVE" && sub.status !== "TRIAL") {
       throw new Error("Subscription inactive");
     }
+
     if (sub.expiresAt && sub.expiresAt < now) {
       throw new Error("Subscription expired");
     }
   }
 
+  /* ---------------- GENERATE TOKEN ---------------- */
   const token = generateJsonWebToken(user);
-  // ✅ NEW — compute subscription meta
-const subscriptionMeta = getUserSubscriptionStatus(user);
 
-  /* ---------------- SINGLE DEVICE (Super Admin SKIP) ---------------- */
-  if (deviceId && !user.isSuperAdmin) {  // ✅ Super admin skips device management
-    if (!user.device || user.device.deviceId !== deviceId) {
-      user.device = {
-        deviceId,
-        deviceName: deviceInfo.deviceName || 'Unknown',
-        browser: deviceInfo.browser || 'Unknown',
-        os: deviceInfo.os || 'Unknown',
-        deviceType: deviceInfo.deviceType || 'Unknown',
-        userAgent: deviceInfo.userAgent || '',
-        token,
-        lastLogin: new Date(),
-      };
-      user.deviceId = deviceId;
-    } else {
-      user.device.token = token;
-      user.device.lastLogin = new Date();
+  /* ---------------- SINGLE DEVICE LOGIC ---------------- */
+  if (!user.isSuperAdmin) {
+
+    if (!deviceId) {
+      throw new Error("deviceId required");
     }
+
+    // 🚫 Block if device already exists and different
+    if (user.device?.deviceId && user.device.deviceId !== deviceId) {
+      throw new Error(
+        "Device limit reached. Please contact admin to reset device."
+      );
+    }
+
+    // Save new OR same device
+    user.device = {
+      deviceId,
+      deviceName: deviceInfo.deviceName || "Unknown",
+      browser: deviceInfo.browser || "Unknown",
+      os: deviceInfo.os || "Unknown",
+      deviceType: deviceInfo.deviceType || "Unknown",
+      userAgent: deviceInfo.userAgent || "",
+      token,
+      lastLogin: new Date(),
+    };
+
+    user.deviceId = deviceId;
+
     await user.save();
   }
 
-  // return {
-  //   token,
-  //   user: {
-  //     _id: user._id,
-  //     userName: user.userName,
-  //     email: user.email,
-  //     name: user.name,
-  //     isSuperAdmin: user.isSuperAdmin,
-  //   },
-  //   device: user.isSuperAdmin ? null : user.device,  // ✅ Super admin returns null device
-  // };
+  /* ---------------- SUBSCRIPTION META ---------------- */
+  const subscriptionMeta = getUserSubscriptionStatus(user);
 
   return {
-  token,
-  user: {
-    _id: user._id,
-    userName: user.userName,
-    email: user.email,
-    name: user.name,
-    isSuperAdmin: user.isSuperAdmin,
-  },
-  device: user.isSuperAdmin ? null : user.device,
-
-  // 🔥 ADD THIS BLOCK (VERY IMPORTANT)
-  subscription: subscriptionMeta
+    token,
+    user: {
+      _id: user._id,
+      userName: user.userName,
+      email: user.email,
+      name: user.name,
+      isSuperAdmin: user.isSuperAdmin,
+    },
+    device: user.isSuperAdmin ? null : user.device,
+    subscription: subscriptionMeta
+  };
 };
-};
-
 
 
 

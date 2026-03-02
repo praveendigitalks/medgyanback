@@ -6,6 +6,9 @@ import {
   getUserbyId,
   updateUser,
   deleteUser,
+   delinkUserDeviceService,
+  blockUserService,
+  unblockUserService
   
 } from "../service/user.service.js";
 
@@ -70,3 +73,46 @@ export const deleteUserController = async (req, res) => {
 };
 
 
+export const delinkUserDeviceController = async (req, res) => {
+  try {
+    await delinkUserDeviceService(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Device removed successfully. User can login from new device."
+    });
+
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+
+export const blockUserController = async (req, res) => {
+  try {
+    await blockUserService(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "User blocked successfully"
+    });
+
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+
+export const unblockUserController = async (req, res) => {
+  try {
+    await unblockUserService(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "User unblocked successfully"
+    });
+
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
