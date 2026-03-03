@@ -78,21 +78,34 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
     await user.save();
   }
 
-  /* ---------------- SUBSCRIPTION META ---------------- */
-  const subscriptionMeta = getUserSubscriptionStatus(user);
+ /* ---------------- SUBSCRIPTION META - CORRECTED ✅ ---------------- */
+const sub = user.subscription || {};
 
-  return {
-    token,
-    user: {
-      _id: user._id,
-      userName: user.userName,
-      email: user.email,
-      name: user.name,
-      isSuperAdmin: user.isSuperAdmin,
-    },
-    device: user.isSuperAdmin ? null : user.device,
-    subscription: subscriptionMeta
-  };
+// ✅ FULL subscription details (don't use getUserSubscriptionStatus here)
+const subscriptionResponse = {
+  status: sub.status || "TRIAL",
+  subscription_plan: sub.subscription_plan || "TRIAL",        // ✅ THIS WAS MISSING
+  startDate: sub.startDate,
+  expiresAt: sub.expiresAt,
+  expiryNotified: sub.expiryNotified || false,
+  canPurchase: sub.status !== "ACTIVE",
+  daysLeft: user.daysRemaining || 0,
+  isExpiringSoon: (user.daysRemaining || 0) <= 7 && (user.daysRemaining || 0) > 0
+};
+
+return {
+  token,
+  user: {
+    _id: user._id,
+    userName: user.userName,
+    email: user.email,
+    name: user.name,
+    isSuperAdmin: user.isSuperAdmin,
+  },
+  device: user.isSuperAdmin ? null : user.device,
+  subscription: subscriptionResponse  // ✅ NOW COMPLETE
+};
+
 };
 
 

@@ -27,12 +27,14 @@ export const LoginUser = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Login error:", error.message); // ✅ Added logging
     return res.status(400).json({
       success: false,
       message: error.message
     });
   }
 };
+
 
 
 
@@ -96,4 +98,26 @@ export const LogoutUser = async (req, res) => {
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }
+};
+
+
+export const getUserSubscriptionStatus = (user) => {
+  if (user.isSuperAdmin) {
+    return {
+      canPurchase: false,
+      daysLeft: null,
+      isExpiringSoon: false
+    };
+  }
+
+  const sub = user.subscription || {};
+  const now = new Date();
+  const expiresAt = sub.expiresAt ? new Date(sub.expiresAt) : null;
+  const daysLeft = user.daysRemaining || 0;
+
+  return {
+    canPurchase: sub.status !== "ACTIVE",
+    daysLeft,
+    isExpiringSoon: daysLeft <= 7 && daysLeft > 0
+  };
 };

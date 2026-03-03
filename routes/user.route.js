@@ -1,18 +1,36 @@
 import express from "express";
-const router = express.Router();
-import { CreateUserController, GetUserController,GetUserControllerByid, updateUserController,deleteUserController,delinkUserDeviceController,blockUserController, unblockUserController } from "../controller/user.controller.js";
-import {protect} from "./../middleware/auth.middleware.js";
+import {
+  CreateUserController,
+  GetUserController,
+  GetUserControllerByid,
+  updateUserController,
+  deleteUserController,
+  delinkUserDeviceController,
+  blockUserController,
+  unblockUserController,
+  bulkUpdateUsersController,
+  extendSubscriptionController,
+} from "../controller/user.controller.js";
+import { protect } from "../middleware/auth.middleware.js";
 import { queryOptions } from "../constant/globalpagination.js";
 import User from "../models/user.model.js";
 
-// router.use(protect)
+const router = express.Router();
 
-router.post("/" ,CreateUserController);
-router.get("/", queryOptions(User), GetUserController );
-router.get("/:id",GetUserControllerByid);
-router.put("/:id", updateUserController);
+// Public / semi-public routes
+router.post("/", CreateUserController);
+router.get("/", queryOptions(User), GetUserController);
+router.get("/:id", GetUserControllerByid);
+
+// Admin-protected user updates
+router.put("/:id", protect, updateUserController);
+router.patch("/bulk", protect, bulkUpdateUsersController);
+router.post("/:id/extend", protect, extendSubscriptionController);
+
+// Other actions (you may also want protect here, depending on business rules)
 router.delete("/:id", deleteUserController);
 router.put("/:id/delink-device", delinkUserDeviceController);
 router.put("/:id/block", blockUserController);
 router.put("/:id/unblock", unblockUserController);
+
 export default router;
