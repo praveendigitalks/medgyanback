@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema(
     },
     userName: {
       type: String,
-      required: [true, "Username is required"],
+      // required: [true, "Username is required"],
       unique: true,
       lowercase: true,
       trim: true,
@@ -157,8 +157,7 @@ const userSchema = new mongoose.Schema(
 );
 
 // Indexes
-userSchema.index({ userName: 1 });
-userSchema.index({ email: 1 });
+
 userSchema.index({ "subscription.expiresAt": 1 });
 userSchema.index({ isSuperAdmin: 1 });
 userSchema.index({ isBlocked: 1 });
