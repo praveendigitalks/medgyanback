@@ -150,81 +150,91 @@ import { getUserSubscriptionStatus } from "../utils/subscription.js";
 // };
 
 export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
-  console.log('🔐 LOGIN STARTED', { identifier, hasDeviceId: !!deviceId });
+  console.log("🔐 LOGIN STARTED", { identifier, hasDeviceId: !!deviceId });
 
   /* ---------------- FIND USER ---------------- */
+  const normalizedIdentifier = identifier.toLowerCase().trim();
+
   const user = await User.findOne({
-    $or: [
-      { userName: identifier.toLowerCase().trim() },
-      { email: identifier.toLowerCase().trim() }
-    ]
+    $or: [{ userName: normalizedIdentifier }, { email: normalizedIdentifier }],
   });
 
   if (!user) {
-    console.log('❌ User not found');
+    console.log("❌ User not found");
     throw new Error("User not found");
   }
-  console.log('✅ User found', { userId: user._id, isSuperAdmin: user.isSuperAdmin, hasDevices: !!user.devices });
+  console.log("✅ User found", {
+    userId: user._id,
+    isSuperAdmin: user.isSuperAdmin,
+    hasDevice: !!user.device,
+  });
 
   /* ---------------- BLOCK CHECK ---------------- */
   if (user.isBlocked) {
-    console.log('❌ User blocked');
+    console.log("❌ User blocked");
     throw new Error("Your account has been blocked by admin.");
   }
 
   /* ---------------- PASSWORD CHECK ---------------- */
   const match = await comparePassword(pin, user.pin);
   if (!match) {
-    console.log('❌ Invalid credentials');
+    console.log("❌ Invalid credentials");
     throw new Error("Invalid credentials");
   }
-  console.log('✅ Password match');
+  console.log("✅ Password match");
 
   /* ---------------- SUBSCRIPTION CHECK ---------------- */
   if (!user.isSuperAdmin) {
     const now = new Date();
     const sub = user.subscription || {};
-    console.log('📋 Subscription check', { status: sub.status, expiresAt: sub.expiresAt });
+    console.log("📋 Subscription check", {
+      status: sub.status,
+      expiresAt: sub.expiresAt,
+    });
 
     if (sub.status !== "ACTIVE" && sub.status !== "TRIAL") {
-      console.log('❌ Subscription inactive');
+      console.log("❌ Subscription inactive");
       throw new Error("Subscription inactive");
     }
 
     if (sub.expiresAt && sub.expiresAt < now) {
-      console.log('❌ Subscription expired');
+      console.log("❌ Subscription expired");
       throw new Error("Subscription expired");
     }
-    console.log('✅ Subscription valid');
+    console.log("✅ Subscription valid");
+  }
+
+  /* ---------------- DEVICE LOCK CHECK ---------------- */
+  if (!user.isSuperAdmin) {
+    if (!deviceId) {
+      console.log("❌ No deviceId provided");
+      throw new Error("deviceId required");
+    }
+
+    console.log("📱 Incoming device", {
+      deviceIdPreview: deviceId.substring(0, 20) + "...",
+    });
+
+    // If user already has a device locked, block all further logins
+    if (user.device && user.device.deviceId) {
+      if (user.device.deviceId === deviceId) {
+        console.log("❌ Same device trying to login again");
+        throw new Error("You are already logged in on this device.");
+      }
+
+      console.log("❌ Different device trying to login while one is active");
+      throw new Error(
+        "Your account is already active on another device. Contact admin to reset device."
+      );
+    }
   }
 
   /* ---------------- GENERATE TOKEN ---------------- */
   const token = generateJsonWebToken(user);
-  console.log('🔑 Token generated');
+  console.log("🔑 Token generated");
 
-  /* ---------------- MULTI DEVICE ARRAY - PROTECT MIDDLEWARE FIX ✅ ---------------- */
+  /* ---------------- SAVE DEVICE (FIRST TIME ONLY) ---------------- */
   if (!user.isSuperAdmin) {
-    if (!deviceId) {
-      console.log('❌ No deviceId provided');
-      throw new Error("deviceId required");
-    }
-
-    console.log('📱 Processing device', { deviceId: deviceId.substring(0, 20) + '...' });
-
-    // ✅ FIX 1: Initialize devices array if undefined
-    if (!Array.isArray(user.devices)) {
-      console.log('🔧 Initializing empty devices array');
-      user.devices = [];
-    }
-
-    console.log('📊 Devices before cleanup', user.devices.length);
-
-    // ✅ FIX 2: Remove old device with same deviceId (logout old sessions)
-    const oldDevicesCount = user.devices.length;
-    user.devices = user.devices.filter(d => d.deviceId !== deviceId);
-    console.log('🧹 Cleaned old devices', { oldCount: oldDevicesCount, newCount: user.devices.length });
-
-    // ✅ FIX 3: Create new device object
     const deviceData = {
       deviceId,
       deviceName: deviceInfo.deviceName || "Unknown",
@@ -232,24 +242,15 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
       os: deviceInfo.os || "Unknown",
       deviceType: deviceInfo.deviceType || "Unknown",
       userAgent: deviceInfo.userAgent || "",
-      token,  // ✅ JWT token for protect middleware validation
+      token, // used by protect middleware
       lastLogin: new Date(),
     };
 
-    // ✅ FIX 4: Add to array
-    user.devices.push(deviceData);
-    console.log('➕ New device added. Total devices:', user.devices.length);
-
-    // 🔥 CRITICAL: Save to MongoDB
+    user.device = deviceData;
     await user.save();
-    console.log('💾 User saved to MongoDB with devices array');
-    
-    // Verify save worked
-    const verifyUser = await User.findById(user._id).select('devices');
-    console.log('🔍 POST-SAVE VERIFICATION:', {
-      hasDevices: !!verifyUser.devices,
-      devicesCount: verifyUser.devices?.length || 0,
-      firstDeviceId: verifyUser.devices?.[0]?.deviceId
+    console.log("💾 User saved with device lock", {
+      userId: user._id,
+      deviceId: user.device.deviceId,
     });
   }
 
@@ -263,9 +264,11 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
     expiryNotified: sub.expiryNotified || false,
     canPurchase: sub.status !== "ACTIVE",
     daysLeft: user.daysRemaining || 0,
-    isExpiringSoon: (user.daysRemaining || 0) <= 7 && (user.daysRemaining || 0) > 0
+    isExpiringSoon:
+      (user.daysRemaining || 0) <= 7 && (user.daysRemaining || 0) > 0,
   };
 
+  /* ---------------- RESPONSE ---------------- */
   const response = {
     token,
     user: {
@@ -275,14 +278,14 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
       name: user.name,
       isSuperAdmin: user.isSuperAdmin,
     },
-    device: user.isSuperAdmin ? null : user.devices?.[0] || null,
-    subscription: subscriptionResponse
+    device: user.isSuperAdmin ? null : user.device || null,
+    subscription: subscriptionResponse,
   };
 
-  console.log('✅ LOGIN SUCCESSFUL', {
+  console.log("✅ LOGIN SUCCESSFUL", {
     userId: user._id,
-    devicesCount: user.devices?.length || 0,
-    subscriptionPlan: subscriptionResponse.subscription_plan
+    hasDevice: !!user.device,
+    subscriptionPlan: subscriptionResponse.subscription_plan,
   });
 
   return response;
