@@ -149,10 +149,158 @@ import { getUserSubscriptionStatus } from "../utils/subscription.js";
 //   };
 // };
 
+// export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
+//   console.log("🔐 LOGIN STARTED", { identifier, hasDeviceId: !!deviceId });
+
+//   /* ---------------- FIND USER ---------------- */
+//   const normalizedIdentifier = identifier.toLowerCase().trim();
+
+//   const user = await User.findOne({
+//     $or: [{ userName: normalizedIdentifier }, { email: normalizedIdentifier }],
+//   });
+
+//   if (!user) {
+//     console.log("❌ User not found");
+//     throw new Error("User not found");
+//   }
+//   console.log("✅ User found", {
+//     userId: user._id,
+//     isSuperAdmin: user.isSuperAdmin,
+//     hasDevice: !!user.device,
+//   });
+
+//   /* ---------------- BLOCK CHECK ---------------- */
+//   if (user.isBlocked) {
+//     console.log("❌ User blocked");
+//     throw new Error("Your account has been blocked by admin.");
+//   }
+
+//   /* ---------------- PASSWORD CHECK ---------------- */
+//   const match = await comparePassword(pin, user.pin);
+//   if (!match) {
+//     console.log("❌ Invalid credentials");
+//     throw new Error("Invalid credentials");
+//   }
+//   console.log("✅ Password match");
+
+//   /* ---------------- SUBSCRIPTION CHECK ---------------- */
+//   if (!user.isSuperAdmin) {
+//     const now = new Date();
+//     const sub = user.subscription || {};
+//     console.log("📋 Subscription check", {
+//       status: sub.status,
+//       expiresAt: sub.expiresAt,
+//     });
+
+//     if (sub.status !== "ACTIVE" && sub.status !== "TRIAL") {
+//       console.log("❌ Subscription inactive");
+//       throw new Error("Subscription inactive");
+//     }
+
+//     if (sub.expiresAt && sub.expiresAt < now) {
+//       console.log("❌ Subscription expired");
+//       throw new Error("Subscription expired");
+//     }
+//     console.log("✅ Subscription valid");
+//   }
+
+//   /* ---------------- DEVICE LOCK CHECK ---------------- */
+//   if (!user.isSuperAdmin) {
+//     if (!deviceId) {
+//       console.log("❌ No deviceId provided");
+//       throw new Error("deviceId required");
+//     }
+
+//     console.log("📱 Incoming device", {
+//       deviceIdPreview: deviceId.substring(0, 20) + "...",
+//     });
+
+//     // Ensure field exists
+//     if (!user.device) {
+//       user.device = null;
+//     }
+
+//     // If a device is already bound, only allow same deviceId
+//     if (user.device && user.device.deviceId) {
+//       if (user.device.deviceId !== deviceId) {
+//         console.log("❌ Different device trying to login while one is active");
+//         throw new Error(
+//           "Your account is already active on another device. Contact admin to reset device."
+//         );
+//       }
+
+//       // Same device re-login is allowed: we just refresh token below
+//       console.log("✅ Same device re-login, will refresh token");
+//     }
+//   }
+
+//   /* ---------------- GENERATE TOKEN ---------------- */
+//   const token = generateJsonWebToken(user);
+//   console.log("🔑 Token generated");
+
+//   /* ---------------- SAVE / UPDATE DEVICE BINDING ---------------- */
+//   if (!user.isSuperAdmin) {
+//     const deviceData = {
+//       deviceId,
+//       deviceName: deviceInfo.deviceName || "Unknown",
+//       browser: deviceInfo.browser || "Unknown",
+//       os: deviceInfo.os || "Unknown",
+//       deviceType: deviceInfo.deviceType || "Unknown",
+//       userAgent: deviceInfo.userAgent || "",
+//       token,            // current active token
+//       lastLogin: new Date(),
+//     };
+
+//     user.device = deviceData;   // always keep single bound device
+//     await user.save();
+//     console.log("💾 User saved with device lock", {
+//       userId: user._id,
+//       deviceId: user.device.deviceId,
+//     });
+//   }
+
+//   /* ---------------- SUBSCRIPTION META ---------------- */
+//   const sub = user.subscription || {};
+//   const subscriptionResponse = {
+//     status: sub.status || "TRIAL",
+//     subscription_plan: sub.subscription_plan || "TRIAL",
+//     startDate: sub.startDate,
+//     expiresAt: sub.expiresAt,
+//     expiryNotified: sub.expiryNotified || false,
+//     canPurchase: sub.status !== "ACTIVE",
+//     daysLeft: user.daysRemaining || 0,
+//     isExpiringSoon:
+//       (user.daysRemaining || 0) <= 7 && (user.daysRemaining || 0) > 0,
+//   };
+
+//   /* ---------------- RESPONSE ---------------- */
+//   const response = {
+//     token,
+//     user: {
+//       _id: user._id,
+//       userName: user.userName,
+//       email: user.email,
+//       name: user.name,
+//       isSuperAdmin: user.isSuperAdmin,
+//     },
+//     device: user.isSuperAdmin ? null : user.device || null,
+//     subscription: subscriptionResponse,
+//   };
+
+//   console.log("✅ LOGIN SUCCESSFUL", {
+//     userId: user._id,
+//     hasDevice: !!user.device,
+//     subscriptionPlan: subscriptionResponse.subscription_plan,
+//   });
+
+//   return response;
+// };
+
+
+// services/auth/login.service.ts (or wherever Login is)
 export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
   console.log("🔐 LOGIN STARTED", { identifier, hasDeviceId: !!deviceId });
 
-  /* ---------------- FIND USER ---------------- */
   const normalizedIdentifier = identifier.toLowerCase().trim();
 
   const user = await User.findOne({
@@ -163,19 +311,12 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
     console.log("❌ User not found");
     throw new Error("User not found");
   }
-  console.log("✅ User found", {
-    userId: user._id,
-    isSuperAdmin: user.isSuperAdmin,
-    hasDevice: !!user.device,
-  });
 
-  /* ---------------- BLOCK CHECK ---------------- */
   if (user.isBlocked) {
     console.log("❌ User blocked");
     throw new Error("Your account has been blocked by admin.");
   }
 
-  /* ---------------- PASSWORD CHECK ---------------- */
   const match = await comparePassword(pin, user.pin);
   if (!match) {
     console.log("❌ Invalid credentials");
@@ -183,7 +324,7 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
   }
   console.log("✅ Password match");
 
-  /* ---------------- SUBSCRIPTION CHECK ---------------- */
+  // ---- SUBSCRIPTION CHECK (your existing rule) ----
   if (!user.isSuperAdmin) {
     const now = new Date();
     const sub = user.subscription || {};
@@ -201,10 +342,11 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
       console.log("❌ Subscription expired");
       throw new Error("Subscription expired");
     }
+
     console.log("✅ Subscription valid");
   }
 
-  /* ---------------- DEVICE LOCK CHECK ---------------- */
+  // ---- DEVICE LOCK CHECK (single device) ----
   if (!user.isSuperAdmin) {
     if (!deviceId) {
       console.log("❌ No deviceId provided");
@@ -215,25 +357,29 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
       deviceIdPreview: deviceId.substring(0, 20) + "...",
     });
 
-    // If user already has a device locked, block all further logins
+    // first time: no device bound => allow and bind below
+    if (!user.device) {
+      user.device = null;
+    }
+
+    // if device already bound, only same deviceId is allowed
     if (user.device && user.device.deviceId) {
-      if (user.device.deviceId === deviceId) {
-        console.log("❌ Same device trying to login again");
-        throw new Error("You are already logged in on this device.");
+      if (user.device.deviceId !== deviceId) {
+        console.log("❌ Different device trying to login while one is active");
+        throw new Error(
+          "Your account is already active on another device. Contact admin to reset device."
+        );
       }
 
-      console.log("❌ Different device trying to login while one is active");
-      throw new Error(
-        "Your account is already active on another device. Contact admin to reset device."
-      );
+      console.log("✅ Same device re-login, will refresh token");
     }
   }
 
-  /* ---------------- GENERATE TOKEN ---------------- */
+  // ---- TOKEN ----
   const token = generateJsonWebToken(user);
   console.log("🔑 Token generated");
 
-  /* ---------------- SAVE DEVICE (FIRST TIME ONLY) ---------------- */
+  // ---- SAVE / UPDATE DEVICE BINDING (no validation) ----
   if (!user.isSuperAdmin) {
     const deviceData = {
       deviceId,
@@ -242,19 +388,21 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
       os: deviceInfo.os || "Unknown",
       deviceType: deviceInfo.deviceType || "Unknown",
       userAgent: deviceInfo.userAgent || "",
-      token, // used by protect middleware
+      token,
       lastLogin: new Date(),
     };
 
     user.device = deviceData;
-    await user.save();
+
+    // avoid subscriptionLog adminId/adminName validation during login
+    await user.save({ validateBeforeSave: false });
+
     console.log("💾 User saved with device lock", {
       userId: user._id,
       deviceId: user.device.deviceId,
     });
   }
 
-  /* ---------------- SUBSCRIPTION META ---------------- */
   const sub = user.subscription || {};
   const subscriptionResponse = {
     status: sub.status || "TRIAL",
@@ -268,7 +416,6 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
       (user.daysRemaining || 0) <= 7 && (user.daysRemaining || 0) > 0,
   };
 
-  /* ---------------- RESPONSE ---------------- */
   const response = {
     token,
     user: {
@@ -290,7 +437,6 @@ export const Login = async ({ identifier, pin, deviceId, deviceInfo = {} }) => {
 
   return response;
 };
-
 
 
 export const forgotPin = async ({ identifier }) => {
@@ -390,17 +536,20 @@ export const verifyResetPin = async ({ identifier, resetPin, newPin }) => {
 
 
 
-export const Logout = async ({ userId, deviceId }) => {
+export const Logout = async ({ userId }) => {
   const user = await User.findById(userId);
   if (!user) throw new Error("User not found");
 
-  const before = user.devices.length;
-
-  user.devices = user.devices.filter((d) => d.deviceId !== deviceId);
-
-  if (before === user.devices.length) {
-    throw new Error("Device already logged out");
+  // if already no active token, just treat as logged out
+  if (!user.device || !user.device.token) {
+    return { message: "Already logged out" };
   }
 
-  await user.save();
+  // Invalidate current token (server-side)
+  user.device.token = null;
+  await user.save({ validateBeforeSave: false });
+
+  return { message: "Logout successful" };
 };
+
+

@@ -88,17 +88,24 @@ export const verifyResetPinController = async (req, res) => {
 export const LogoutUser = async (req, res) => {
   try {
     const { userId } = req.body;
-    
+
     if (!userId) {
       return res.status(400).json({ message: "userId is required" });
     }
 
     const result = await Logout({ userId });
-    return res.status(200).json(result);
+    return res.status(200).json({
+      success: true,
+      ...result
+    });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
+
 
 
 export const getUserSubscriptionStatus = (user) => {

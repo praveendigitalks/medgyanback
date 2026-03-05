@@ -9,6 +9,7 @@ import {
 // =============== CREATE ===============
 export const createUser = async (data) => {
   data.pin = await hashPassword(data.pin);
+  // creation must validate, so keep normal create
   return User.create({ ...data });
 };
 
@@ -100,7 +101,9 @@ export const updateUser = async (id, data, adminUser = null) => {
       const incomingPlan = incoming.subscription_plan || currentPlan;
 
       const currentStatus = current.status || "TRIAL";
-      const currentExpiresAt = current.expiresAt ? new Date(current.expiresAt) : null;
+      const currentExpiresAt = current.expiresAt
+        ? new Date(current.expiresAt)
+        : null;
 
       const hasActivePaid =
         currentPlan !== "TRIAL" &&
@@ -108,8 +111,6 @@ export const updateUser = async (id, data, adminUser = null) => {
         currentExpiresAt &&
         currentExpiresAt > now;
 
-      // 1) If user already has ACTIVE paid plan and admin sends same plan + same dates,
-      //    skip subscription update (no duplicate log, no change).
       const samePlan =
         incomingPlan === currentPlan &&
         String(incoming.startDate || current.startDate || "") ===
@@ -117,25 +118,24 @@ export const updateUser = async (id, data, adminUser = null) => {
         String(incoming.expiresAt || current.expiresAt || "") ===
           String(current.expiresAt || "");
 
-      if (hasActivePaid && samePlan) {
-        // do nothing, keep subscription as is
-      } else {
-        // 2) Otherwise, apply admin's explicit change
-        //    Admin decides when to extend, upgrade, or expire — no auto logic here.
+      if (!hasActivePaid || !samePlan) {
         user.subscription = {
           ...current,
           ...incoming,
         };
 
-        // also ensure status is consistent with plan if you want:
-        // e.g., if plan is TRIAL and admin forgot status, default to TRIAL
         if (!user.subscription.status) {
           user.subscription.status =
-            user.subscription.subscription_plan === "TRIAL" ? "TRIAL" : "ACTIVE";
+            user.subscription.subscription_plan === "TRIAL"
+              ? "TRIAL"
+              : "ACTIVE";
         }
 
-        // ---------- LOG ENTRY (ONLY IF subscription actually changed) ----------
-        if (adminUser) {
+        // ---------- LOG ENTRY ----------
+        if (adminUser && adminUser._id) {
+          const adminNameSafe =
+            adminUser.name || adminUser.userName || "System";
+
           const newPlan = user.subscription.subscription_plan;
 
           const newSubState = {
@@ -155,13 +155,15 @@ export const updateUser = async (id, data, adminUser = null) => {
           const changed =
             oldSubState.status !== newSubState.status ||
             oldSubState.subscription_plan !== newSubState.subscription_plan ||
-            String(oldSubState.startDate || "") !== String(newSubState.startDate || "") ||
-            String(oldSubState.expiresAt || "") !== String(newSubState.expiresAt || "");
+            String(oldSubState.startDate || "") !==
+              String(newSubState.startDate || "") ||
+            String(oldSubState.expiresAt || "") !==
+              String(newSubState.expiresAt || "");
 
           if (changed) {
             await user.addSubscriptionLog({
               adminId: adminUser._id,
-              adminName: adminUser.name || adminUser.userName,
+              adminName: adminNameSafe,
               newPlan: user.subscription,
               accessType: data.subscriptionLog?.accessType || newPlan,
               notes: data.subscriptionLog?.notes || "",
@@ -175,19 +177,21 @@ export const updateUser = async (id, data, adminUser = null) => {
     }
 
     // ---------- OPTIONAL: manual log-only (no subscription change) ----------
-    if (!data.subscription && data.subscriptionLog && adminUser) {
+    if (!data.subscription && data.subscriptionLog && adminUser && adminUser._id) {
+      const adminNameSafe = adminUser.name || adminUser.userName || "System";
+
       await user.addSubscriptionLog({
         adminId: adminUser._id,
-        adminName: adminUser.name || adminUser.userName,
+        adminName: adminNameSafe,
         ...data.subscriptionLog,
         newPlan: user.subscription,
       });
     }
 
-    // Save without re-validating all legacy fields (like old hashed pins)
+    // Admin flow: keep full validation ON here
     const updatedUser = await user.save({
       session,
-      validateBeforeSave: false,
+      validateBeforeSave: true,
     });
 
     await session.commitTransaction();
@@ -204,14 +208,15 @@ export const updateUser = async (id, data, adminUser = null) => {
   } catch (error) {
     try {
       await session.abortTransaction();
-    } catch (e) {
-      // ignore abort error if already committed
+    } catch {
+      // ignore
     } finally {
       session.endSession();
     }
     throw error;
   }
 };
+
 
 // =============== BULK UPDATE (ADMIN) ===============
 export const bulkUpdateUsers = async (userIds, updateData, adminUser) => {
@@ -252,7 +257,8 @@ export const delinkUserDeviceService = async (userId) => {
   user.device = undefined;
   user.deviceId = undefined;
 
-  await user.save();
+  // NON‑SUBSCRIPTION FLOW → disable validation
+  await user.save({ validateBeforeSave: false });
   return user;
 };
 
@@ -266,7 +272,8 @@ export const blockUserService = async (userId) => {
   user.isBlocked = true;
   user.blockedAt = new Date();
 
-  await user.save();
+  // NON‑SUBSCRIPTION FLOW → disable validation
+  await user.save({ validateBeforeSave: false });
   return user;
 };
 
@@ -279,6 +286,7 @@ export const unblockUserService = async (userId) => {
   user.isBlocked = false;
   user.blockedAt = null;
 
-  await user.save();
+  // NON‑SUBSCRIPTION FLOW → disable validation
+  await user.save({ validateBeforeSave: false });
   return user;
 };

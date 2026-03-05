@@ -80,6 +80,7 @@ export const updateUserController = async (req, res) => {
   }
 };
 
+
 // =============== BULK UPDATE (ADMIN ONLY) ===============
 export const bulkUpdateUsersController = async (req, res) => {
   try {
