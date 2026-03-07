@@ -16,6 +16,7 @@ app.use(express.json());
 /* ---------- CORS ---------- */
 const allowedOrigins = [
   "http://localhost:4200",
+"http://localhost:56923",
   "https://praveensrivastav.vercel.app",
 ];
 

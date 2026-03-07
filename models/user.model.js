@@ -61,7 +61,8 @@ const userSchema = new mongoose.Schema(
       },
       subscription_plan: {
         type: String,
-        enum: ["TRIAL", "BASIC", "PRO", "PREMIUM"],
+        // enum: ["TRIAL", "BASIC", "PRO", "PREMIUM"],  
+        enum: ["TRIAL" ,"PREMIUM"],  
         default: "TRIAL",
       },
       startDate: {
@@ -101,7 +102,8 @@ const userSchema = new mongoose.Schema(
           },
           subscription_plan: {
             type: String,
-            enum: ["TRIAL", "BASIC", "PRO", "PREMIUM"],
+            // enum: ["TRIAL", "BASIC", "PRO", "PREMIUM"],
+            enum: ["TRIAL", "PREMIUM"],
           },
           startDate: Date,
           expiresAt: Date,

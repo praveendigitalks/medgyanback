@@ -22,26 +22,69 @@ export const CreateUserController = async (req, res) => {
 };
 
 // =============== LIST WITH PAGINATION ===============
+// export const GetUserController = async (req, res) => {
+//   try {
+//     const users = await getUser(req.query);
+//     const total = await User.countDocuments({}); // or use same filter if needed
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Users retrieved successfully",
+//       users,
+//       pagination: {
+//         page: parseInt(req.query.page) || 1,
+//         limit: parseInt(req.query.limit) || 10,
+//         total,
+//         pages: Math.ceil(total / (parseInt(req.query.limit) || 10)),
+//       },
+//     });
+//   } catch (error) {
+//     return res.status(500).json({ error: error.message });
+//   }
+// };
+
 export const GetUserController = async (req, res) => {
   try {
+    // build same filter as getUser for total count
+    const filter = { isSuperAdmin: false };
+
+    if (req.query.userName) {
+      filter.userName = { $regex: req.query.userName, $options: "i" };
+    }
+
+    if (req.query.name) {
+      filter.name = { $regex: req.query.name, $options: "i" };
+    }
+
+    if (req.query.email) {
+      filter.email = { $regex: req.query.email, $options: "i" };
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // data for current page
     const users = await getUser(req.query);
-    const total = await User.countDocuments({}); // or use same filter if needed
+
+    // total items with same filter (no super admin)
+    const total = await User.countDocuments(filter);
 
     return res.status(200).json({
       success: true,
       message: "Users retrieved successfully",
       users,
       pagination: {
-        page: parseInt(req.query.page) || 1,
-        limit: parseInt(req.query.limit) || 10,
+        page,
+        limit,
         total,
-        pages: Math.ceil(total / (parseInt(req.query.limit) || 10)),
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 };
+
 
 // =============== GET BY ID ===============
 export const GetUserControllerByid = async (req, res) => {
@@ -125,7 +168,7 @@ export const extendSubscriptionController = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { expiresAt, subscription_plan = "BASIC" } = req.body;
+    const { expiresAt, subscription_plan = "TRIAL" } = req.body;
 
     const updateData = {
       subscription: {

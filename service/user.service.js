@@ -14,28 +14,56 @@ export const createUser = async (data) => {
 };
 
 // =============== LIST WITH FILTERS ===============
+// export const getUser = async (queryParams) => {
+//   let filter = {};
+
+//   if (queryParams.userName) {
+//     filter.userName = {
+//       $regex: queryParams.userName,
+//       $options: "i",
+//     };
+//   }
+
+//   if (queryParams.name) {
+//     filter.name = {
+//       $regex: queryParams.name,
+//       $options: "i",
+//     };
+//   }
+
+//   if (queryParams.email) {
+//     filter.email = {
+//       $regex: queryParams.email,
+//       $options: "i",
+//     };
+//   }
+
+//   let query = User.find(filter);
+
+//   if (queryParams.page) {
+//     const page = parseInt(queryParams.page);
+//     const limit = parseInt(queryParams.limit) || 10;
+//     const skip = (page - 1) * limit;
+//     query = query.skip(skip).limit(limit);
+//   }
+
+//   return await query;
+// };
+
 export const getUser = async (queryParams) => {
-  let filter = {};
+  // base filter: never return super admin
+  const filter = { isSuperAdmin: false };
 
   if (queryParams.userName) {
-    filter.userName = {
-      $regex: queryParams.userName,
-      $options: "i",
-    };
+    filter.userName = { $regex: queryParams.userName, $options: "i" };
   }
 
   if (queryParams.name) {
-    filter.name = {
-      $regex: queryParams.name,
-      $options: "i",
-    };
+    filter.name = { $regex: queryParams.name, $options: "i" };
   }
 
   if (queryParams.email) {
-    filter.email = {
-      $regex: queryParams.email,
-      $options: "i",
-    };
+    filter.email = { $regex: queryParams.email, $options: "i" };
   }
 
   let query = User.find(filter);
@@ -47,8 +75,9 @@ export const getUser = async (queryParams) => {
     query = query.skip(skip).limit(limit);
   }
 
-  return await query;
+  return query;
 };
+
 
 // =============== GET BY ID ===============
 export const getUserbyId = async (id) => {

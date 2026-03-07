@@ -35,7 +35,8 @@ const contentSchema = new mongoose.Schema(
   allowedPlans: [
     {
       type: String,
-      enum: ["TRIAL","BASIC","PRO","PREMIUM"]
+      // enum: ["TRIAL","BASIC","PRO","PREMIUM"]
+      enum: ["TRIAL","PREMIUM"]
     }
   ],
 
