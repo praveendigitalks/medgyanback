@@ -5,6 +5,7 @@ import {
   getSubscriptionHistorySummary,
   getSubscriptionActionType,
 } from "../utils/subscription.js";
+import bcrypt from "bcryptjs";
 
 // =============== CREATE ===============
 export const createUser = async (data) => {
@@ -244,6 +245,21 @@ export const updateUser = async (id, data, adminUser = null) => {
     }
     throw error;
   }
+};
+
+// =============== Change Password ===============
+export const changePassword = async (userId, newPin) => {
+  const user = await User.findById(userId);
+  console.log("🚀 ~ changePassword ~ user:", user);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const hashed = await bcrypt.hash(newPin, 10);
+  user.pin = hashed;
+
+  await user.save({ validateBeforeSave: false });
+  return user;
 };
 
 

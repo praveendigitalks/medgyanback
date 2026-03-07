@@ -9,6 +9,7 @@ import {
   blockUserService,
   unblockUserService,
   bulkUpdateUsers,
+  changePassword,
 } from "../service/user.service.js";
 
 // =============== CREATE ===============
@@ -85,7 +86,6 @@ export const GetUserController = async (req, res) => {
   }
 };
 
-
 // =============== GET BY ID ===============
 export const GetUserControllerByid = async (req, res) => {
   try {
@@ -123,6 +123,39 @@ export const updateUserController = async (req, res) => {
   }
 };
 
+// =============== Change Password ===============
+export const changeMyPasswordController = async (req, res) => {
+  try {
+    const authUser = req.user; // still validated by protect
+
+    if (!authUser) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const { id } = req.params;       // <-- take id from URL
+    const { pin } = req.body;
+
+    if (!pin || typeof pin !== "string") {
+      return res
+        .status(400)
+        .json({ error: "New password (pin) is required" });
+    }
+
+    await changePassword(id, pin);    // <-- use URL id
+
+    return res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (err) {
+    console.error("Change password error:", err);
+    return res
+      .status(500)
+      .json({ error: err.message || "Password update failed" });
+  }
+};
+
+
 
 // =============== BULK UPDATE (ADMIN ONLY) ===============
 export const bulkUpdateUsersController = async (req, res) => {
@@ -141,9 +174,7 @@ export const bulkUpdateUsersController = async (req, res) => {
     }
 
     if (userIds.length > 50) {
-      return res
-        .status(400)
-        .json({ error: "Max 50 users per bulk update" });
+      return res.status(400).json({ error: "Max 50 users per bulk update" });
     }
 
     const results = await bulkUpdateUsers(userIds, updateData, adminUser);
@@ -214,8 +245,7 @@ export const delinkUserDeviceController = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message:
-        "Device removed successfully. User can login from new device.",
+      message: "Device removed successfully. User can login from new device.",
     });
   } catch (error) {
     return res.status(400).json({ message: error.message });

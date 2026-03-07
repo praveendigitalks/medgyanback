@@ -10,6 +10,7 @@ import {
   unblockUserController,
   bulkUpdateUsersController,
   extendSubscriptionController,
+  changeMyPasswordController
 } from "../controller/user.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 import { queryOptions } from "../constant/globalpagination.js";
@@ -24,6 +25,7 @@ router.get("/:id", GetUserControllerByid);
 
 // Admin-protected user updates
 router.put("/:id", protect, updateUserController);
+router.put("/changepassword/:id", protect, changeMyPasswordController);
 router.patch("/bulk", protect, bulkUpdateUsersController);
 router.post("/:id/extend", protect, extendSubscriptionController);
 
